@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Maker Mono";
+  src: url("/fonts/maker-mono.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Recharts puts tabIndex on .recharts-wrapper for keyboard a11y, which
+   makes the browser draw its default focus outline around the whole chart
+   the moment you click a slice/bar — reads as an accidental selection box
+   rather than an intentional focus state, so suppress it. Also block text
+   selection drag-highlighting across chart/list content in general. */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface {
+  outline: none !important;
+  user-select: none;
+}
+
+/* The transaction amount field shows the currency where the native
+   up/down spinner would be, so that spinner has to go — Chrome/Safari
+   (WebKit) and Firefox each need their own removal rule. */
+.amount-input::-webkit-outer-spin-button,
+.amount-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.amount-input {
+  -moz-appearance: textfield;
+}
+
+.brand-wordmark {
+  font-family: "Maker Mono", ui-monospace, monospace;
+  font-size: 1.15em;
+  letter-spacing: 0.02em;
+}
+
+h1, h2, h3,
+.font-heading {
+  font-family: "Unbounded", "Inter", sans-serif;
+}
+
+/* --accent always tracks --gradient-accent (set by AppearanceContext) —
+   defined once, unscoped by theme, so every accent-colored control (active
+   nav item, selected toggle, primary buttons) repaints the moment the user
+   changes the gradient color in Settings, not just the corner glows. */
+:root {
+  --accent: var(--gradient-accent);
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-secondary: #f0f0f2;
+  --text: #1c1c1e;
+  --text-muted: #6b7280;
+  --border: #e5e5ea;
+  --gradient-accent: #34c759;
+  --expense: #ff3b30;
+  --income: #34c759;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0b0d;
+  --surface: #1c1c1e;
+  --surface-secondary: #232326;
+  --text: #f5f5f7;
+  --text-muted: #9a9aa2;
+  --border: #2c2c2e;
+  --gradient-accent: #34c759;
+  --expense: #ff453a;
+  --income: #30d158;
+}
+
+/* Default to the system preference until the user picks explicitly
+   (ThemeContext then stamps data-theme on <html> and this stops applying). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: #0b0b0d;
+    --surface: #1c1c1e;
+    --surface-secondary: #232326;
+    --text: #f5f5f7;
+    --text-muted: #9a9aa2;
+    --border: #2c2c2e;
+    --accent: #34c759;
+    --gradient-accent: #34c759;
+    --expense: #ff453a;
+    --income: #30d158;
+  }
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-secondary: #f0f0f2;
+    --text: #1c1c1e;
+    --text-muted: #6b7280;
+    --border: #e5e5ea;
+    --gradient-accent: #34c759;
+    --expense: #ff3b30;
+    --income: #34c759;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.9rem;
+}
+
+/* Background composition: a soft mesh gradient — several large, heavily
+   blurred blobs (see GradientBackdrop.tsx) drifting slowly across the
+   whole page, blended together so their overlaps read as smooth color
+   transitions rather than distinct circles. Every blob's hue derives from
+   the single user-configurable --gradient-accent (Settings), so the mesh
+   stays tonally consistent with whatever color the user picks. Opacity and
+   blend mode differ by theme: light mode needs *more* opacity to register
+   against near-white, and "multiply" reads as soft ink on paper; dark mode
+   wants "screen" so the glow lifts off the near-black instead of muddying it. */
+.gradient-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gradient-mesh-blob {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--gradient-accent) 0%, transparent 70%);
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+}
+
+:root[data-theme="dark"] .gradient-mesh-blob {
+  opacity: 0.5;
+  mix-blend-mode: screen;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .gradient-mesh-blob {
+    opacity: 0.5;
+    mix-blend-mode: screen;
+  }
+}
