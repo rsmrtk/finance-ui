@@ -29,6 +29,31 @@ export interface FinancialScore {
   consistencyScore: number
 }
 
+export interface Subscription {
+  description: string
+  averageAmount: number
+  currency: string
+  occurrences: number
+  lastDate: string
+  averageIntervalDays: number
+}
+
+export interface RunwayForecast {
+  currentBalance: number
+  dailyBurnRate: number
+  projectedZeroDate?: string
+  nextPaydayEstimate?: string
+  willMakeIt: boolean
+}
+
+export interface CategoryPace {
+  categoryId: string
+  categoryName: string
+  typicalMonthly: number
+  spentSoFar: number
+  paceRatio: number
+}
+
 export interface Category {
   id: string
   name: string
@@ -46,6 +71,7 @@ export interface Transaction {
   date: string // ISO 8601.
   note: string
   categoryId: string
+  isInternalTransfer?: boolean // Money moved between the user's own Monobank cards/jars — not real income/expense.
 }
 
 export interface Rate {
@@ -67,6 +93,12 @@ export interface MonobankAccount {
   currency: string
   type: string
   selected?: boolean
+}
+
+export interface ImportResult {
+  imported: number
+  skipped: number
+  errors: string[]
 }
 
 export interface Receipt {

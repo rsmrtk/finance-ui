@@ -61,6 +61,7 @@ h1, h2, h3,
   --gradient-accent: #34c759;
   --expense: #ff3b30;
   --income: #34c759;
+  --transfer: #6b7280;
 }
 
 :root[data-theme="dark"] {
@@ -73,6 +74,7 @@ h1, h2, h3,
   --gradient-accent: #34c759;
   --expense: #ff453a;
   --income: #30d158;
+  --transfer: #9a9aa2;
 }
 
 /* Default to the system preference until the user picks explicitly
@@ -89,6 +91,7 @@ h1, h2, h3,
     --gradient-accent: #34c759;
     --expense: #ff453a;
     --income: #30d158;
+    --transfer: #9a9aa2;
   }
 }
 @media (prefers-color-scheme: light) {
@@ -102,6 +105,7 @@ h1, h2, h3,
     --gradient-accent: #34c759;
     --expense: #ff3b30;
     --income: #34c759;
+    --transfer: #6b7280;
   }
 }
 

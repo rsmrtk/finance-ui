@@ -19,6 +19,8 @@ import { ProfileLayout } from './pages/profile/ProfileLayout'
 import { ProfileOverviewPage } from './pages/profile/ProfileOverviewPage'
 import { ProfilePlanPage } from './pages/profile/ProfilePlanPage'
 import { ProfilePrivacyPage } from './pages/profile/ProfilePrivacyPage'
+import { ReportsPage } from './pages/ReportsPage'
+import { SimulatorPage } from './pages/SimulatorPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 
 // Default staleTime is 0, so every page mount (switching between
@@ -57,6 +59,8 @@ function AppRoutes() {
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="simulator" element={<SimulatorPage />} />
         <Route path="profile" element={<ProfileLayout />}>
           <Route index element={<ProfileOverviewPage />} />
           <Route path="integrations" element={<ProfileIntegrationsPage />} />

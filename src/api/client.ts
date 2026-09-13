@@ -1,12 +1,16 @@
 import type {
   Category,
+  CategoryPace,
   ChatMessage,
   FinancialScore,
+  ImportResult,
   MonobankAccount,
   MonobankConnection,
   Rate,
   Receipt,
+  RunwayForecast,
   Session,
+  Subscription,
   Transaction,
   TransactionType,
   User,
@@ -149,6 +153,7 @@ export const monobankApi = {
       body: JSON.stringify({ personalToken, accountIds, maskedPans }),
     }),
   myAccounts: () => request<MonobankAccount[]>('/monobank/my-accounts'),
+  sync: () => request<{ imported: number; reclassified: number }>('/monobank/sync', { method: 'POST' }),
   updateAccounts: (accountIds: string[], maskedPans: string[]) =>
     request<MonobankConnection>('/monobank/accounts', {
       method: 'PUT',
@@ -163,6 +168,9 @@ export const advisorApi = {
   chat: (message: string, history: ChatMessage[]) =>
     request<{ reply: string }>('/advisor/chat', { method: 'POST', body: JSON.stringify({ message, history }) }),
   score: () => request<FinancialScore>('/advisor/score'),
+  subscriptions: () => request<Subscription[]>('/advisor/subscriptions'),
+  runway: () => request<RunwayForecast>('/advisor/runway'),
+  pace: () => request<CategoryPace[]>('/advisor/pace'),
 }
 
 // --- Billing (LiqPay) ---------------------------------------------------
@@ -178,4 +186,23 @@ export const billingApi = {
   subscribe: (plan: string) => request<CheckoutResponse>('/billing/subscribe', { method: 'POST', body: JSON.stringify({ plan }) }),
   cancel: () => request<void>('/billing/cancel', { method: 'POST' }),
   receipts: () => request<Receipt[]>('/billing/receipts'),
+}
+
+// --- Reports (CSV export/import) -----------------------------------------
+
+export const reportsApi = {
+  // A plain link (not fetch) so the browser handles the download itself —
+  // Content-Disposition on the response does the rest, and the same-origin
+  // cookie already rides along on a normal navigation.
+  exportUrl: (from: string, to: string) => `${BASE}/reports/export?from=${from}&to=${to}`,
+  import: async (file: File): Promise<ImportResult> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    // Not the shared request() helper — that always sets a JSON
+    // Content-Type, which would stomp the multipart boundary here.
+    const res = await fetch(`${BASE}/reports/import`, { method: 'POST', credentials: 'include', body: formData })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new ApiError(res.status, body.error ?? `request failed (${res.status})`)
+    return body as ImportResult
+  },
 }

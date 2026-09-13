@@ -21,7 +21,7 @@ export function ProfileLayout() {
   const navigate = useNavigate()
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-6">
+    <div className="max-w-2xl lg:max-w-4xl mx-auto flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">{t('profile.title')}</h1>
         <button

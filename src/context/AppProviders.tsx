@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { authApi } from '../api/client'
 import { contrastText } from '../lib/color'
@@ -42,6 +43,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -118,12 +120,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // For updates that don't touch theme/gradient (e.g. saving Profile
         // goals) — merges the fresh user object without a full /me refetch.
         refreshUser: (u) => setUser(u),
-        login: async (email, password) => applyUser((await authApi.login(email, password)).user),
-        signup: async (email, password) => applyUser((await authApi.signup(email, password)).user),
-        loginWithGoogle: async (idToken) => applyUser((await authApi.loginWithGoogle(idToken)).user),
+        // queryClient.clear() on every account transition (in or out) —
+        // ['transactions'], ['categories'], ['monobank'], etc. are keyed
+        // by name only, not by user id, so without this the previous
+        // account's cached data (still "fresh" under staleTime) paints
+        // instantly on login, until the next background poll overwrites
+        // it. That window is a real cross-account data leak, not just a
+        // cosmetic flash.
+        login: async (email, password) => {
+          const { user: u } = await authApi.login(email, password)
+          queryClient.clear()
+          applyUser(u)
+        },
+        signup: async (email, password) => {
+          const { user: u } = await authApi.signup(email, password)
+          queryClient.clear()
+          applyUser(u)
+        },
+        loginWithGoogle: async (idToken) => {
+          const { user: u } = await authApi.loginWithGoogle(idToken)
+          queryClient.clear()
+          applyUser(u)
+        },
         logout: async () => {
           await authApi.logout()
           setUser(null)
+          queryClient.clear()
         },
       }}
     >

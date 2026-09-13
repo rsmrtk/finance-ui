@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Check, Lock } from 'lucide-react'
+import { Check, Lock, Pencil, RefreshCw, Unlink } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError, monobankApi } from '../../api/client'
@@ -93,6 +93,17 @@ export function ProfileIntegrationsPage() {
     },
   })
   const savePicker = isEditing ? updateAccounts : connect
+  const sync = useMutation({
+    mutationFn: monobankApi.sync,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['monobank'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      const parts: string[] = []
+      if (res.imported > 0) parts.push(t('toast.monoSynced').replace('{count}', String(res.imported)))
+      if (res.reclassified > 0) parts.push(t('toast.monoReclassified').replace('{count}', String(res.reclassified)))
+      toast(parts.length > 0 ? parts.join(' · ') : t('toast.monoSyncedNothing'))
+    },
+  })
   const disconnect = useMutation({
     mutationFn: monobankApi.disconnect,
     onSuccess: () => {
@@ -195,28 +206,48 @@ export function ProfileIntegrationsPage() {
                 )
               })()}
             </Row>
-            <Row>
+            <div className="p-4 flex flex-wrap gap-2" style={{ borderTop: '1px solid var(--border)' }}>
+              <button
+                onClick={() => sync.mutate()}
+                disabled={sync.isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <RefreshCw size={14} className={sync.isPending ? 'animate-spin' : ''} />
+                {sync.isPending ? t('profile.integrations.syncing') : t('profile.integrations.sync')}
+              </button>
               <button
                 onClick={() => editAccounts.mutate()}
                 disabled={editAccounts.isPending}
-                className="text-sm font-medium disabled:opacity-50"
-                style={{ color: 'var(--accent)' }}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
+                <Pencil size={14} />
                 {t('profile.integrations.edit')}
               </button>
-            </Row>
+              <button
+                onClick={() => disconnect.mutate()}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium text-red-500"
+                style={{ background: 'var(--surface)', border: '1px solid color-mix(in srgb, var(--expense) 40%, transparent)' }}
+              >
+                <Unlink size={14} />
+                {t('profile.integrations.disconnect')}
+              </button>
+            </div>
+            {sync.isError && (
+              <div className="px-4 pb-3">
+                <p className="text-xs text-red-500">
+                  {sync.error instanceof ApiError ? sync.error.message : t('profile.integrations.error')}
+                </p>
+              </div>
+            )}
             {editAccounts.isError && (
-              <Row>
+              <div className="px-4 pb-3">
                 <p className="text-xs text-red-500">
                   {editAccounts.error instanceof ApiError ? editAccounts.error.message : t('profile.integrations.accountsError')}
                 </p>
-              </Row>
+              </div>
             )}
-            <Row>
-              <button onClick={() => disconnect.mutate()} className="text-sm font-medium text-red-500">
-                {t('profile.integrations.disconnect')}
-              </button>
-            </Row>
           </>
         ) : !unlocked ? (
           <div className="p-4 flex flex-col items-center text-center gap-2">

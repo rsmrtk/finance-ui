@@ -4,19 +4,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Link } from 'react-router-dom'
 import { categoriesApi, ratesApi, transactionsApi, TRANSACTIONS_POLL_MS } from '../api/client'
+import { BudgetPaceSection } from '../components/BudgetPaceSection'
 import { CategoryGlyph } from '../components/CategoryGlyph'
 import { DatePicker } from '../components/DatePicker'
 import { markAnalyticsVisited } from '../components/OnboardingChecklist'
 import { Skeleton } from '../components/Skeleton'
+import { SubscriptionsSection } from '../components/SubscriptionsSection'
 import { useAmountVisibility } from '../context/AmountVisibilityContext'
 import { useAuth } from '../context/AppProviders'
 import { useHistoricalRates } from '../hooks/useHistoricalRates'
 import { translateCategoryName } from '../i18n/defaultCategories'
 import { useLanguage } from '../i18n/LanguageContext'
-import { categoryTotals, cumulativeBalance, monthlyTotals } from '../lib/analytics'
+import { balanceForRange, categoryTotals, trendForRange } from '../lib/analytics'
 import { formatCurrency } from '../lib/currency'
 import { allowsAnalytics } from '../lib/plan'
-import type { Currency, TransactionType } from '../api/types'
+import type { Currency, Transaction, TransactionType } from '../api/types'
 
 type Period = 'month' | 'quarter' | 'year' | 'all' | 'custom'
 
@@ -72,6 +74,27 @@ function withinPeriod(date: Date, period: Period, ref: Date, from: string, to: s
   return date >= cutoff
 }
 
+// Concrete [from, to] for the same period the pie chart's filter uses —
+// so the trend/balance charts below always show exactly what's selected.
+function periodRange(period: Period, ref: Date, from: string, to: string, transactions: Transaction[]): { from: Date; to: Date } {
+  if (period === 'custom') {
+    return {
+      from: from ? new Date(from + 'T00:00:00') : ref,
+      to: to ? new Date(to + 'T23:59:59') : ref,
+    }
+  }
+  if (period === 'all') {
+    let earliest: Date | null = null
+    for (const tx of transactions) {
+      const d = new Date(tx.date)
+      if (!earliest || d < earliest) earliest = d
+    }
+    return { from: earliest ?? ref, to: ref }
+  }
+  const months = { month: 1, quarter: 3, year: 12 }[period]
+  return { from: new Date(ref.getFullYear(), ref.getMonth() - months + 1, 1), to: ref }
+}
+
 export function AnalyticsPage() {
   const { user } = useAuth()
   const { mask } = useAmountVisibility()
@@ -95,6 +118,11 @@ export function AnalyticsPage() {
   const [customTo, setCustomTo] = useState(() => new Date().toISOString().slice(0, 10))
 
   const now = new Date()
+  const range = useMemo(
+    () => periodRange(period, now, customFrom, customTo, transactions),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [period, customFrom, customTo, transactions],
+  )
   const filtered = useMemo(
     () => transactions.filter((tx) => withinPeriod(new Date(tx.date), period, now, customFrom, customTo)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,27 +140,32 @@ export function AnalyticsPage() {
   )
   const total = totals.reduce((sum, ct) => sum + ct.total, 0)
 
-  const months = useMemo(
-    () => monthlyTotals(transactions, 6, baseCurrency, rates, now, history),
+  // Same [from, to] the pie chart above uses — the trend/balance charts
+  // used to always show a fixed trailing 6 months regardless of the
+  // period picker, which is exactly why they never matched what was
+  // selected. Granularity (day vs month) adapts to how wide the range is.
+  const { buckets: trendBuckets, granularity } = useMemo(
+    () => trendForRange(transactions, range.from, range.to, baseCurrency, rates, history),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transactions, baseCurrency, rates, history],
+    [transactions, range, baseCurrency, rates, history],
   )
-  const trendData = months.map((m) => ({
-    name: m.month.toLocaleDateString(locale, { month: 'short' }),
-    [t('dashboard.income')]: Math.round(m.income),
-    [t('dashboard.expense')]: Math.round(m.expense),
+  const labelFormat: Intl.DateTimeFormatOptions = granularity === 'day' ? { day: 'numeric', month: 'short' } : { month: 'short' }
+  const trendData = trendBuckets.map((b) => ({
+    name: b.label.toLocaleDateString(locale, labelFormat),
+    [t('dashboard.income')]: Math.round(b.income),
+    [t('dashboard.expense')]: Math.round(b.expense),
   }))
   const incomeKey = t('dashboard.income')
   const expenseKey = t('dashboard.expense')
 
-  const balancePoints = useMemo(
-    () => cumulativeBalance(transactions, 6, baseCurrency, rates, now, history),
+  const { points: balancePoints } = useMemo(
+    () => balanceForRange(transactions, range.from, range.to, baseCurrency, rates, history),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transactions, baseCurrency, rates, history],
+    [transactions, range, baseCurrency, rates, history],
   )
   const balanceKey = t('an.balanceOverTime')
   const balanceData = balancePoints.map((p) => ({
-    name: p.month.toLocaleDateString(locale, { month: 'short' }),
+    name: p.label.toLocaleDateString(locale, labelFormat),
     [balanceKey]: Math.round(p.balance),
   }))
 
@@ -149,10 +182,12 @@ export function AnalyticsPage() {
 
   if (txPending) {
     return (
-      <div className="max-w-2xl mx-auto flex flex-col gap-8">
+      <div className="max-w-7xl flex flex-col gap-8">
         <h1 className="text-xl font-bold">{t('an.title')}</h1>
-        <Skeleton className="h-56 rounded-2xl" />
-        <Skeleton className="h-56 rounded-2xl" />
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Skeleton className="h-56 rounded-2xl" />
+          <Skeleton className="h-56 rounded-2xl" />
+        </div>
       </div>
     )
   }
@@ -160,7 +195,7 @@ export function AnalyticsPage() {
   const locked = !allowsAnalytics(user?.plan ?? 'free')
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-8">
+    <div className="max-w-7xl flex flex-col gap-8">
       <h1 className="text-xl font-bold">{t('an.title')}</h1>
 
       <div className="relative">
@@ -184,7 +219,10 @@ export function AnalyticsPage() {
             </div>
           </div>
         )}
-        <div className={`flex flex-col gap-8 ${locked ? 'pointer-events-none select-none' : ''}`} style={locked ? { filter: 'blur(6px)' } : {}}>
+        <div
+          className={`grid lg:grid-cols-2 gap-6 items-start ${locked ? 'pointer-events-none select-none' : ''}`}
+          style={locked ? { filter: 'blur(6px)' } : {}}
+        >
       <section>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <select
@@ -287,7 +325,7 @@ export function AnalyticsPage() {
 
       <section>
         <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>
-          {t('an.trend6')}
+          {t('an.trend')}
         </p>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
@@ -302,7 +340,7 @@ export function AnalyticsPage() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
-              <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} width={36} />
+              <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} width={36} domain={['auto', 'auto']} />
               <Tooltip
                 formatter={(v) => mask(formatCurrency(Number(v), baseCurrency))}
                 contentStyle={tooltipStyle}
@@ -347,7 +385,7 @@ export function AnalyticsPage() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
-              <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} width={36} />
+              <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} width={36} domain={['auto', 'auto']} />
               <Tooltip
                 formatter={(v) => mask(formatCurrency(Number(v), baseCurrency))}
                 contentStyle={tooltipStyle}
@@ -395,6 +433,9 @@ export function AnalyticsPage() {
           </div>
         </section>
       )}
+
+      <BudgetPaceSection />
+      <SubscriptionsSection />
         </div>
       </div>
     </div>

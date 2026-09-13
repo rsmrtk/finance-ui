@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Eye, EyeOff, Home, LayoutDashboard, ListOrdered, Moon, PieChart, Sun, Tags } from 'lucide-react'
+import { Eye, EyeOff, FileText, FlaskConical, Home, LayoutDashboard, ListOrdered, Moon, PieChart, Sun, Tags } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAmountVisibility } from '../context/AmountVisibilityContext'
 import { useAuth } from '../context/AppProviders'
@@ -13,6 +13,8 @@ const NAV_ITEMS = [
   { to: '/app/transactions', key: 'nav.transactions', icon: ListOrdered, end: false },
   { to: '/app/categories', key: 'nav.categories', icon: Tags, end: false },
   { to: '/app/analytics', key: 'nav.analytics', icon: PieChart, end: false },
+  { to: '/app/reports', key: 'nav.reports', icon: FileText, end: false },
+  { to: '/app/simulator', key: 'nav.simulator', icon: FlaskConical, end: false },
 ] as const
 
 export function AppShell() {
@@ -84,7 +86,7 @@ export function AppShell() {
           <main> scrolls, so "Dark theme" always sits at the bottom of the
           visible screen instead of sinking to the bottom of the page. */}
       <aside
-        className="hidden md:flex w-56 shrink-0 h-full overflow-y-auto p-4 flex-col gap-1 border-r"
+        className="hidden md:flex w-56 xl:w-64 shrink-0 h-full overflow-y-auto p-4 flex-col gap-1 border-r"
         style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--surface) 60%, transparent)' }}
       >
         <div className="flex items-center justify-between px-2 mb-1">
@@ -179,7 +181,7 @@ export function AppShell() {
         </button>
       </aside>
 
-      <main className="flex-1 min-h-0 p-4 md:p-6 pb-20 md:pb-6 overflow-y-auto">
+      <main className="flex-1 min-h-0 p-4 md:p-6 xl:p-8 pb-20 md:pb-6 overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
