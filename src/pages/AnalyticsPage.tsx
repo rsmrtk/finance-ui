@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
+import { Lock } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { categoriesApi, ratesApi, transactionsApi } from '../api/client'
+import { Link } from 'react-router-dom'
+import { categoriesApi, ratesApi, transactionsApi, TRANSACTIONS_POLL_MS } from '../api/client'
 import { CategoryGlyph } from '../components/CategoryGlyph'
 import { DatePicker } from '../components/DatePicker'
 import { markAnalyticsVisited } from '../components/OnboardingChecklist'
@@ -13,6 +15,7 @@ import { translateCategoryName } from '../i18n/defaultCategories'
 import { useLanguage } from '../i18n/LanguageContext'
 import { categoryTotals, cumulativeBalance, monthlyTotals } from '../lib/analytics'
 import { formatCurrency } from '../lib/currency'
+import { allowsAnalytics } from '../lib/plan'
 import type { Currency, TransactionType } from '../api/types'
 
 type Period = 'month' | 'quarter' | 'year' | 'all' | 'custom'
@@ -77,7 +80,11 @@ export function AnalyticsPage() {
 
   useEffect(() => markAnalyticsVisited(), [])
 
-  const { data: transactions = [], isPending: txPending } = useQuery({ queryKey: ['transactions'], queryFn: transactionsApi.list })
+  const { data: transactions = [], isPending: txPending } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: transactionsApi.list,
+    refetchInterval: TRANSACTIONS_POLL_MS,
+  })
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
   const { data: rates = [] } = useQuery({ queryKey: ['rates'], queryFn: ratesApi.list })
   const history = useHistoricalRates(transactions)
@@ -150,10 +157,34 @@ export function AnalyticsPage() {
     )
   }
 
+  const locked = !allowsAnalytics(user?.plan ?? 'free')
+
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-8">
       <h1 className="text-xl font-bold">{t('an.title')}</h1>
 
+      <div className="relative">
+        {locked && (
+          <div className="absolute inset-0 z-10 flex items-start justify-center pt-16">
+            <div
+              className="flex flex-col items-center text-center gap-3 rounded-2xl p-6 max-w-xs shadow-lg"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <Lock size={22} style={{ color: 'var(--accent)' }} />
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {t('an.locked')}
+              </p>
+              <Link
+                to="/app/profile/plan"
+                className="rounded-xl px-4 py-2 text-sm font-semibold"
+                style={{ background: 'var(--accent)', color: 'var(--accent-text)' }}
+              >
+                {t('felix.upgrade')}
+              </Link>
+            </div>
+          </div>
+        )}
+        <div className={`flex flex-col gap-8 ${locked ? 'pointer-events-none select-none' : ''}`} style={locked ? { filter: 'blur(6px)' } : {}}>
       <section>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <select
@@ -364,6 +395,8 @@ export function AnalyticsPage() {
           </div>
         </section>
       )}
+        </div>
+      </div>
     </div>
   )
 }

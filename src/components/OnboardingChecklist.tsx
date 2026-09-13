@@ -4,7 +4,9 @@ import { Check, ListOrdered, Link2, PieChart, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { monobankApi } from '../api/client'
+import { useAuth } from '../context/AppProviders'
 import { useLanguage } from '../i18n/LanguageContext'
+import { allowsMonobank } from '../lib/plan'
 
 const DISMISS_KEY = 'onboardingStore.dismissed'
 const VISITED_ANALYTICS_KEY = 'onboardingStore.visitedAnalytics'
@@ -15,13 +17,29 @@ export function markAnalyticsVisited() {
 
 export function OnboardingChecklist({ hasTransactions }: { hasTransactions: boolean }) {
   const { t } = useLanguage()
-  const { data: monobank } = useQuery({ queryKey: ['monobank'], queryFn: monobankApi.status })
+  const { user } = useAuth()
+  const monobankGated = !!user && allowsMonobank(user.plan)
+  const { data: monobank, isLoading: monobankLoading } = useQuery({
+    queryKey: ['monobank'],
+    queryFn: monobankApi.status,
+    enabled: monobankGated,
+  })
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(DISMISS_KEY) === '1')
   const [visitedAnalytics] = useState(() => localStorage.getItem(VISITED_ANALYTICS_KEY) === '1')
 
+  // While the Monobank step's real status is still loading, its "done"
+  // state is unknown — showing it as not-done and then flipping to done
+  // a moment later (or vice versa) reads as the checklist randomly
+  // resetting, so hold off rendering anything until it's settled.
+  if (monobankGated && monobankLoading) return null
+
   const steps = [
     { done: hasTransactions, icon: ListOrdered, labelKey: 'onboarding.step1' as const, to: '/app/transactions' },
-    { done: !!monobank?.isConnected, icon: Link2, labelKey: 'onboarding.step2' as const, to: '/app/profile/integrations' },
+    // Monobank is a Max-only feature — no point nudging Free/Pro users
+    // toward a step they'd just hit a paywall on.
+    ...(monobankGated
+      ? [{ done: !!monobank?.isConnected, icon: Link2, labelKey: 'onboarding.step2' as const, to: '/app/profile/integrations' }]
+      : []),
     { done: visitedAnalytics, icon: PieChart, labelKey: 'onboarding.step3' as const, to: '/app/analytics' },
   ]
   const allDone = steps.every((s) => s.done)

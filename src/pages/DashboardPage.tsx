@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
-import { categoriesApi, ratesApi, transactionsApi } from '../api/client'
+import { categoriesApi, ratesApi, transactionsApi, TRANSACTIONS_POLL_MS } from '../api/client'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { CategoryGlyph } from '../components/CategoryGlyph'
 import { OnboardingChecklist } from '../components/OnboardingChecklist'
@@ -20,7 +20,11 @@ export function DashboardPage() {
   const { t } = useLanguage()
   const baseCurrency = user?.baseCurrency ?? 'UAH'
 
-  const { data: transactions = [], isPending: txPending } = useQuery({ queryKey: ['transactions'], queryFn: transactionsApi.list })
+  const { data: transactions = [], isPending: txPending } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: transactionsApi.list,
+    refetchInterval: TRANSACTIONS_POLL_MS,
+  })
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
   const { data: rates = [] } = useQuery({ queryKey: ['rates'], queryFn: ratesApi.list })
   const history = useHistoricalRates(transactions)

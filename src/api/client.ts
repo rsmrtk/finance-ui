@@ -1,7 +1,11 @@
 import type {
   Category,
+  ChatMessage,
+  FinancialScore,
+  MonobankAccount,
   MonobankConnection,
   Rate,
+  Receipt,
   Session,
   Transaction,
   TransactionType,
@@ -81,6 +85,8 @@ export const authApi = {
     }),
   updateGoals: (goals: string) =>
     request<{ user: User }>('/auth/goals', { method: 'PATCH', body: JSON.stringify({ goals }) }),
+  updateProfile: (name: string, avatar: string) =>
+    request<{ user: User }>('/auth/profile', { method: 'PATCH', body: JSON.stringify({ name, avatar }) }),
   updateCurrency: (currency: string) =>
     request<{ user: User }>('/auth/currency', { method: 'PATCH', body: JSON.stringify({ currency }) }),
   sessions: () => request<{ sessions: Session[] }>('/auth/sessions'),
@@ -97,6 +103,12 @@ export const categoriesApi = {
 }
 
 // --- Transactions ---------------------------------------------------------
+
+// Monobank transactions land via a server-side webhook, not anything the
+// browser triggers — polling is what makes them show up without a manual
+// refresh. React Query pauses this automatically while the tab isn't
+// focused (refetchIntervalInBackground defaults to false).
+export const TRANSACTIONS_POLL_MS = 15_000
 
 interface TransactionInput {
   categoryId: string
@@ -129,7 +141,41 @@ export const ratesApi = {
 
 export const monobankApi = {
   status: () => request<MonobankConnection>('/monobank/status'),
-  connect: (personalToken: string) =>
-    request<MonobankConnection>('/monobank/connect', { method: 'POST', body: JSON.stringify({ personalToken }) }),
+  accounts: (personalToken: string) =>
+    request<MonobankAccount[]>('/monobank/accounts', { method: 'POST', body: JSON.stringify({ personalToken }) }),
+  connect: (personalToken: string, accountIds: string[], maskedPans: string[]) =>
+    request<MonobankConnection>('/monobank/connect', {
+      method: 'POST',
+      body: JSON.stringify({ personalToken, accountIds, maskedPans }),
+    }),
+  myAccounts: () => request<MonobankAccount[]>('/monobank/my-accounts'),
+  updateAccounts: (accountIds: string[], maskedPans: string[]) =>
+    request<MonobankConnection>('/monobank/accounts', {
+      method: 'PUT',
+      body: JSON.stringify({ accountIds, maskedPans }),
+    }),
   disconnect: () => request<void>('/monobank/disconnect', { method: 'POST' }),
+}
+
+// --- AI advisor ---------------------------------------------------------
+
+export const advisorApi = {
+  chat: (message: string, history: ChatMessage[]) =>
+    request<{ reply: string }>('/advisor/chat', { method: 'POST', body: JSON.stringify({ message, history }) }),
+  score: () => request<FinancialScore>('/advisor/score'),
+}
+
+// --- Billing (LiqPay) ---------------------------------------------------
+
+interface CheckoutResponse {
+  url: string
+  data: string
+  signature: string
+}
+
+export const billingApi = {
+  startTrial: () => request<CheckoutResponse>('/billing/start-trial', { method: 'POST' }),
+  subscribe: (plan: string) => request<CheckoutResponse>('/billing/subscribe', { method: 'POST', body: JSON.stringify({ plan }) }),
+  cancel: () => request<void>('/billing/cancel', { method: 'POST' }),
+  receipts: () => request<Receipt[]>('/billing/receipts'),
 }

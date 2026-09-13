@@ -1,6 +1,9 @@
+import { useMutation } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
+import { billingApi, ApiError } from '../api/client'
 import { useLanguage } from '../i18n/LanguageContext'
-import type { Plan } from '../api/types'
+import { redirectToLiqPayCheckout } from '../lib/liqpay'
+import type { Plan, User } from '../api/types'
 import type { TranslationKey } from '../i18n/translations'
 
 interface Tier {
@@ -35,17 +38,29 @@ const TIERS: Tier[] = [
   },
 ]
 
-// No billing is wired up yet — every non-Free tier is honestly labeled
-// "coming soon" rather than pretending an upgrade button does something
-// it doesn't. currentPlan (when known, i.e. the user is signed in) gets a
-// "current plan" badge instead of a button.
-export function PricingTiers({ currentPlan }: { currentPlan?: Plan }) {
+// Pro and Max are both real purchases via LiqPay (see lib/liqpay) —
+// Enterprise is a mailto:, and Free needs no button. `user` is only
+// passed when signed in (ProfilePlanPage); the logged-out landing page
+// omits it and every tier falls back to its plain informational state.
+export function PricingTiers({ user }: { user?: User }) {
   const { t } = useLanguage()
+
+  const startTrial = useMutation({
+    mutationFn: billingApi.startTrial,
+    onSuccess: (checkout) => redirectToLiqPayCheckout(checkout.url, checkout.data, checkout.signature),
+  })
+  const subscribe = useMutation({
+    mutationFn: (plan: string) => billingApi.subscribe(plan),
+    onSuccess: (checkout) => redirectToLiqPayCheckout(checkout.url, checkout.data, checkout.signature),
+  })
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {TIERS.map((tier) => {
-        const isCurrent = currentPlan === tier.id
+        const isCurrent = user?.plan === tier.id
+        const canPurchase = (tier.id === 'pro' || tier.id === 'max') && !!user && !isCurrent && !user.subscriptionStatus
+        const pending = tier.id === 'max' ? startTrial.isPending : subscribe.isPending
+        const purchaseError = tier.id === 'max' ? startTrial.error : subscribe.error
         return (
           <div
             key={tier.id}
@@ -83,6 +98,30 @@ export function PricingTiers({ currentPlan }: { currentPlan?: Plan }) {
               >
                 {t('pricing.current')}
               </div>
+            ) : tier.id === 'enterprise' ? (
+              <a
+                href="mailto:martun.ros.dev@gmail.com?subject=Vaultly%20Enterprise"
+                className="rounded-xl px-3 py-2 text-xs font-semibold text-center"
+                style={{ background: 'var(--accent)', color: 'var(--accent-text)' }}
+              >
+                {t('pricing.contact')}
+              </a>
+            ) : canPurchase ? (
+              <>
+                <button
+                  onClick={() => (tier.id === 'max' ? startTrial.mutate() : subscribe.mutate(tier.id))}
+                  disabled={pending}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold text-center disabled:opacity-60"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-text)' }}
+                >
+                  {pending ? t('pricing.redirecting') : tier.id === 'max' ? t('pricing.startTrial') : t('pricing.buyNow')}
+                </button>
+                {purchaseError && (
+                  <p className="text-[11px] text-red-500 text-center -mt-2">
+                    {purchaseError instanceof ApiError ? purchaseError.message : t('pricing.trialError')}
+                  </p>
+                )}
+              </>
             ) : (
               <button
                 disabled
@@ -90,7 +129,7 @@ export function PricingTiers({ currentPlan }: { currentPlan?: Plan }) {
                 style={{ background: 'var(--surface-secondary)', border: '1px solid var(--border)' }}
                 title={t('pricing.notWiredUp')}
               >
-                {tier.id === 'enterprise' ? t('pricing.contact') : t('pricing.soon')}
+                {t('pricing.soon')}
               </button>
             )}
           </div>

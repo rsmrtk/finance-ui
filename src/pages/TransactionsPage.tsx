@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { categoriesApi, transactionsApi } from '../api/client'
+import { categoriesApi, transactionsApi, TRANSACTIONS_POLL_MS } from '../api/client'
 import { CategoryGlyph } from '../components/CategoryGlyph'
 import { Skeleton } from '../components/Skeleton'
 import { TransactionModal } from '../components/TransactionModal'
@@ -18,7 +18,11 @@ export function TransactionsPage() {
   const { mask } = useAmountVisibility()
   const toast = useToast()
   const queryClient = useQueryClient()
-  const { data: transactions = [], isPending: txPending } = useQuery({ queryKey: ['transactions'], queryFn: transactionsApi.list })
+  const { data: transactions = [], isPending: txPending } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: transactionsApi.list,
+    refetchInterval: TRANSACTIONS_POLL_MS,
+  })
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
 
   const [search, setSearch] = useState('')

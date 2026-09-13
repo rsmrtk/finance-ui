@@ -7,12 +7,26 @@ export type Plan = 'free' | 'pro' | 'max' | 'enterprise'
 export interface User {
   id: string
   email: string
+  name: string
+  avatar?: string
   baseCurrency: Currency
   theme: Theme
   gradientColor: string
   plan: Plan
   goals: string
+  subscriptionStatus?: string
+  trialEndsAt?: string
   createdAt: string
+}
+
+export interface FinancialScore {
+  total: number
+  savingsRate: number
+  savingsScore: number
+  topCategoryShare: number
+  balanceScore: number
+  activeDays: number
+  consistencyScore: number
 }
 
 export interface Category {
@@ -42,9 +56,27 @@ export interface Rate {
 
 export interface MonobankConnection {
   isConnected: boolean
-  maskedPan: string
+  maskedPans: string[]
   connectedAt?: string
   lastSyncedAt?: string
+}
+
+export interface MonobankAccount {
+  id: string
+  maskedPan: string
+  currency: string
+  type: string
+  selected?: boolean
+}
+
+export interface Receipt {
+  orderId: string
+  plan: Plan
+  status: string
+  amount: number
+  currency: string
+  errorDescription: string
+  createdAt: string
 }
 
 export interface Session {
@@ -53,4 +85,9 @@ export interface Session {
   createdAt: string
   expiresAt: string
   current: boolean
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
 }

@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Eye, EyeOff, Home, LayoutDashboard, ListOrdered, Moon, PieChart, Sun, Tags } from 'lucide-react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAmountVisibility } from '../context/AmountVisibilityContext'
 import { useAuth } from '../context/AppProviders'
 import { useLanguage } from '../i18n/LanguageContext'
 import { CommandPalette } from './CommandPalette'
+import { FelixWidget } from './FelixWidget'
 import { GradientBackdrop } from './GradientBackdrop'
 
 const NAV_ITEMS = [
@@ -15,10 +16,23 @@ const NAV_ITEMS = [
 ] as const
 
 export function AppShell() {
-  const { user, resolvedTheme, setTheme } = useAuth()
+  const { user, resolvedTheme, setTheme, logout } = useAuth()
   const { hidden, toggle: toggleHidden } = useAmountVisibility()
   const { t } = useLanguage()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  // The nav rail's "home" affordance deliberately ends the session instead
+  // of just navigating to "/" — leaving the app that way while still
+  // authenticated would let the landing page's login button silently skip
+  // straight back in, which defeats the point of "leaving". Navigate FIRST,
+  // logout after: clearing the session while still under /app makes
+  // RequireAuth's own redirect win the race and bounce to /login before
+  // our navigate('/') ever lands.
+  const goHome = () => {
+    navigate('/', { replace: true })
+    void logout()
+  }
 
   return (
     <div className="h-screen flex flex-col md:flex-row">
@@ -53,10 +67,14 @@ export function AppShell() {
           </button>
           <Link
             to="/app/profile"
-            className="w-8 h-8 ml-1 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+            className="w-8 h-8 ml-1 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden"
             style={{ background: 'var(--accent)', color: 'var(--accent-text)' }}
           >
-            {(user?.email ?? '?').slice(0, 1).toUpperCase()}
+            {user?.avatar ? (
+              <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (user?.name || user?.email || '?').slice(0, 1).toUpperCase()
+            )}
           </Link>
         </div>
       </header>
@@ -71,14 +89,14 @@ export function AppShell() {
       >
         <div className="flex items-center justify-between px-2 mb-1">
           <span className="brand-wordmark font-semibold">{t('app.name')}</span>
-          <Link
-            to="/"
+          <button
+            onClick={goHome}
             aria-label={t('nav.home')}
             className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5"
             style={{ color: 'var(--text-muted)' }}
           >
             <Home size={15} />
-          </Link>
+          </button>
         </div>
         <button
           onClick={() => window.dispatchEvent(new Event('command-palette:open'))}
@@ -99,13 +117,17 @@ export function AppShell() {
           className="flex items-center gap-2.5 px-2 py-2 mb-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5"
         >
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden"
             style={{ background: 'var(--accent)', color: 'var(--accent-text)' }}
           >
-            {(user?.email ?? '?').slice(0, 1).toUpperCase()}
+            {user?.avatar ? (
+              <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (user?.name || user?.email || '?').slice(0, 1).toUpperCase()
+            )}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold truncate">{user?.email}</p>
+            <p className="text-xs font-semibold truncate">{user?.name || user?.email}</p>
             <p className="text-[11px] uppercase font-medium" style={{ color: 'var(--text-muted)' }}>
               {user?.plan ?? 'free'}
             </p>
@@ -195,6 +217,7 @@ export function AppShell() {
       </nav>
 
       <CommandPalette />
+      <FelixWidget />
     </div>
   )
 }

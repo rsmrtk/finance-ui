@@ -8,6 +8,7 @@ import {
   Moon,
   PieChart,
   Plus,
+  Sparkles,
   Sun,
   Tags,
   User,
@@ -63,6 +64,7 @@ export function CommandPalette() {
       { id: 'go-tx', labelKey: 'nav.transactions', icon: ListOrdered, run: () => navigate('/app/transactions') },
       { id: 'go-cat', labelKey: 'nav.categories', icon: Tags, run: () => navigate('/app/categories') },
       { id: 'go-an', labelKey: 'nav.analytics', icon: PieChart, run: () => navigate('/app/analytics') },
+      { id: 'open-felix', labelKey: 'felix.name', icon: Sparkles, run: () => window.dispatchEvent(new Event('felix:open')) },
       { id: 'go-profile', labelKey: 'profile.title', icon: User, run: () => navigate('/app/profile') },
       {
         id: 'toggle-theme',

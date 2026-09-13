@@ -60,11 +60,11 @@ export function LandingPage() {
             {landingTheme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
           <Link
-            to={user ? '/app/profile' : '/login'}
+            to="/login"
             className="rounded-xl px-4 py-2 text-sm font-semibold"
             style={{ background: 'var(--accent)', color: 'var(--accent-text)' }}
           >
-            {user ? t('landing.backToApp') : t('landing.login')}
+            {t('landing.login')}
           </Link>
         </div>
       </header>

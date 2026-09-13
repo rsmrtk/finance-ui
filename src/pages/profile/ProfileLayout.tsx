@@ -25,9 +25,12 @@ export function ProfileLayout() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">{t('profile.title')}</h1>
         <button
-          onClick={async () => {
-            await logout()
-            navigate('/login', { replace: true })
+          onClick={() => {
+            // Navigate first, logout after — clearing the session while
+            // still under /app lets RequireAuth's own redirect win the
+            // race and bounce to /login instead (see AppShell's goHome).
+            navigate('/', { replace: true })
+            void logout()
           }}
           className="text-sm font-medium text-red-500"
         >
